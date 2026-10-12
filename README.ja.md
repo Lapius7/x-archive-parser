@@ -1,0 +1,128 @@
+# x-archive-parser
+
+[English](README.md) | 日本語
+
+X（旧Twitter）のアーカイブを、月ごとの Markdown・JSONL・CSV に変換する CLI です。変換後のファイルは、コーディングエージェントが grep で調べやすい構成になっています。変換した投稿の検索と集計も、同じコマンドで行えます。
+
+## インストール
+
+```bash
+pnpm add -g @lapius/x-archive-parser
+```
+
+Node 20 以上が必要です。
+
+## 使い方
+
+引数なしで起動すると、質問に答えるだけで変換できる対話モードが始まります。
+
+```bash
+x-archive-parser                              # 対話モード
+x-archive-parser twitter-archive.zip          # zip または展開済みフォルダを変換
+x-archive-parser search "ラーメン" ./x-posts   # 変換した投稿を検索
+x-archive-parser stats ./x-posts              # 投稿の傾向を集計
+```
+
+### 対話モード
+
+アーカイブは次の場所から自動で探します。
+
+- カレントディレクトリ
+- `~/Downloads`
+- WSL では、Windows 側の全ユーザーの `Downloads`（`/mnt/c/Users/*/Downloads`）
+
+名前が `twitter-…` や `x-archive…` で始まる zip と、展開済みフォルダが候補に出ます。見つからなければパスを入力できます。変換中は、読み込んだ投稿数に応じた進捗バーが表示されます。
+
+質問の内容は次のとおりです。
+
+| 質問 | 内容 |
+|---|---|
+| 変換するアーカイブ | 候補から選ぶか、パスを入力します |
+| 出力先 | 既定は `./x-posts` です |
+| タイムゾーン | 日付と月ごとの分類に使います。既定はシステムの設定です |
+| ファイル形式 | Markdown、JSONL、CSV から選びます（複数可） |
+| 除外する投稿 | リポスト、リプライ、引用ポストから選びます。何も選ばなければすべて含めます |
+| いいねの保存 | いいねした投稿を `likes.jsonl` に保存します |
+
+### convert
+
+| オプション | 説明 |
+|---|---|
+| `-o, --out <dir>` | 出力先（既定 `./x-posts`） |
+| `--tz <zone>` | IANA タイムゾーン名（既定はシステムの設定） |
+| `-f, --format <list>` | `md`、`jsonl`、`csv` をカンマ区切りで指定（既定 `md,jsonl`） |
+| `--since <date>` / `--until <date>` | 期間。`YYYY-MM-DD` 形式で、両端の日を含みます。日付は指定したタイムゾーンで判定します |
+| `--exclude <kinds>` | 除外する種別。`reply`、`repost`、`quote` をカンマ区切りで指定 |
+| `--likes` | `likes.jsonl` も書き出す |
+| `--json` | 結果を JSON で標準出力に出す |
+| `-q, --quiet` | エラー以外は何も出さない |
+
+出力の構成は次のとおりです。
+
+```
+x-posts/
+  index.md              入口。合計、期間、月ごとの件数、検索のしかた
+  likes.jsonl           --likes を付けたときだけ作成
+  2024/2024-01.md       読みやすい形式の投稿（リンクとメディア付き）
+  2024/2024-01.jsonl    1投稿1行の JSON
+  2024/2024-01.csv      -f csv を付けたときだけ作成
+```
+
+JSONL の各行には、次の項目があります。
+
+`id`、`localTime`、`createdAt`、`kind`、`text`、`url`、`replyToUser`、`quotedUrl`、`urls`、`hashtags`、`mentions`、`media`、`likes`、`reposts`
+
+同じ出力先に再実行すると、前回の出力を置き換えます。空でないフォルダに `index.md` がない場合は、誤って上書きしないよう書き込みを断ります。
+
+### search
+
+```bash
+x-archive-parser search "ラーメン" --since 2023-01-01 -k post,reply
+x-archive-parser search -E "^(おはよう|おやすみ)" --hashtag daily --media -n 0
+```
+
+| オプション | 説明 |
+|---|---|
+| `-E, --regex` | 検索語を正規表現として扱う |
+| `-k, --kind <list>` | 種別で絞り込む（`post`、`reply`、`repost`、`quote`） |
+| `--since` / `--until` | 期間で絞り込む |
+| `--hashtag <tag>` / `--mention <user>` | ハッシュタグ、メンションで絞り込む |
+| `--media` | 画像や動画のある投稿だけにする |
+| `--min-likes <n>` | いいね数の下限 |
+| `-n, --limit <n>` | 表示件数（既定 20、新しい順。`0` で全件） |
+| `--full` | 本文を省略せずに表示する |
+| `--json` | JSON で出力する |
+
+該当する投稿がないときは、終了コード 1 で終わります。ディレクトリを省略すると `./x-posts` を使います。
+
+### stats
+
+次の内容を集計して表示します。`--json` を付けると数値をそのまま取得できます。
+
+- 種別、年、時間帯ごとの投稿数
+- よく使うハッシュタグ、メンション、リンク先ドメイン
+- いいね数の多い投稿
+
+## 仕組み
+
+- zip または展開済みフォルダの `data/tweets*.js` と `data/account.js` を読みます。zip の読み込みに外部ライブラリは使いません。
+- t.co の短縮 URL を元の URL に戻し、HTML エンティティを復号します。重複する ID は取り除き、投稿を `post`、`reply`、`repost`、`quote` に分類します。
+- すべてローカルで動作し、ネットワーク通信はしません。
+
+## ライブラリとして使う
+
+```ts
+import { convert, search, computeStats } from '@lapius/x-archive-parser';
+
+const result = convert({ input: 'archive.zip', out: './x-posts', tz: 'Asia/Tokyo' });
+```
+
+## 制限事項
+
+- 読み込むのは `tweets*.js`、`account.js`、`like.js` だけです。
+- 画像や動画のファイルはコピーせず、URL を記録します。
+- DM と、`note-tweet.js` にある長文ポストの本文は含まれません。
+
+## ライセンス
+
+MIT

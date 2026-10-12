@@ -12,6 +12,8 @@ export { computeStats, type Stats } from './stats.js';
 
 export type Format = 'md' | 'jsonl' | 'csv';
 
+export interface ProgressEvent { stage: 'read' | 'parse' | 'write'; done: number; total: number }
+
 export interface ConvertOptions {
   input: string;
   out: string;
@@ -23,7 +25,8 @@ export interface ConvertOptions {
   since?: string;
   until?: string;
   likes?: boolean;
-  onStage?: (stage: 'read' | 'parse' | 'write') => void;
+  /** 進捗通知。read は件数なし、parse は投稿数、write は月数で done/total を数える */
+  onProgress?: (e: ProgressEvent) => void;
 }
 
 export interface ConvertResult {
@@ -56,19 +59,24 @@ export function convert(o: ConvertOptions): ConvertResult {
     throw new Error(`出力先が空ではなく index.md もありません: ${o.out}`);
   }
 
-  o.onStage?.('read');
+  const report = (stage: ProgressEvent['stage'], done = 0, total = 0) => o.onProgress?.({ stage, done, total });
+  report('read');
   const src = openSource(o.input);
   const tweetFiles = src.files('tweets?');
   if (tweetFiles.length === 0) throw new Error('data/tweets*.js が見つかりません。X のアーカイブですか？');
   const username = src.files('account').flatMap((f) => parseYtd(f)).map(toUsername).find(Boolean);
 
-  o.onStage?.('parse');
+  const parsed = tweetFiles.map((f) => parseYtd(f));
+  const totalPosts = parsed.reduce((n, a) => n + a.length, 0);
+  let done = 0;
+  report('parse', 0, totalPosts);
   const seen = new Set<string>();
   const byMonth = new Map<string, PostRow[]>();
   const kinds: Record<PostKind, number> = { post: 0, reply: 0, repost: 0, quote: 0 };
   let skipped = 0;
-  for (const f of tweetFiles) {
-    for (const raw of parseYtd(f)) {
+  for (const items of parsed) {
+    for (const raw of items) {
+      if (++done % 200 === 0) report('parse', done, totalPosts);
       const p = toPost(raw, username);
       if (!p || seen.has(p.id)) continue;
       seen.add(p.id);
@@ -82,7 +90,8 @@ export function convert(o: ConvertOptions): ConvertResult {
   }
   const likes: LikeRow[] = o.likes ? src.files('likes?').flatMap((f) => parseYtd(f)).flatMap((x) => toLike(x) ?? []) : [];
 
-  o.onStage?.('write');
+  report('parse', totalPosts, totalPosts);
+  report('write', 0, byMonth.size);
   // 前回の出力を消す（index.md があるときだけここに来る）
   if (existsSync(join(o.out, 'index.md'))) {
     for (const e of readdirSync(o.out)) if (/^\d{4}$/.test(e)) rmSync(join(o.out, e), { recursive: true });
@@ -93,7 +102,9 @@ export function convert(o: ConvertOptions): ConvertResult {
   const months = new Map<string, number>();
   const years = new Map<string, number>();
   let first = '', last = '';
+  let written = 0;
   for (const k of keys) {
+    report('write', written++, keys.length);
     const rows = byMonth.get(k)!.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const dir = join(o.out, k.slice(0, 4));
     mkdirSync(dir, { recursive: true });
@@ -105,6 +116,7 @@ export function convert(o: ConvertOptions): ConvertResult {
     first ||= rows[0]!.localTime.slice(0, 10);
     last = rows[rows.length - 1]!.localTime.slice(0, 10);
   }
+  report('write', keys.length, keys.length);
   if (likes.length) writeFileSync(join(o.out, 'likes.jsonl'), renderLikes(likes));
   const total = [...months.values()].reduce((a, b) => a + b, 0);
   const range: [string, string] | undefined = first ? [first, last] : undefined;

@@ -64,6 +64,19 @@ describe('convert', () => {
   });
 });
 
+describe('progress', () => {
+  it('reports parse and write progress ending at 100%', () => {
+    const root = fixture();
+    const ev: { stage: string; done: number; total: number }[] = [];
+    convert({ input: join(root, 'in'), out: join(root, 'out'), tz: 'UTC', onProgress: (e) => ev.push(e) });
+    expect(ev[0]!.stage).toBe('read');
+    const parse = ev.filter((e) => e.stage === 'parse').at(-1)!;
+    expect(parse).toMatchObject({ done: 5, total: 5 });
+    const write = ev.filter((e) => e.stage === 'write').at(-1)!;
+    expect(write.done).toBe(write.total);
+  });
+});
+
 describe('search and stats', () => {
   it('filters converted posts', () => {
     const root = fixture();

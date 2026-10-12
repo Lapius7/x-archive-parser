@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util';
 import * as p from '@clack/prompts';
 import { convert, computeStats, search, type Format, type PostKind } from './index.js';
 import { interactive } from './interactive.js';
-import { hit, num, pc, statsReport, summary } from './ui.js';
+import { hit, num, pc, progressText, statsReport, summary } from './ui.js';
 
 const VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 const KINDS = ['post', 'reply', 'repost', 'quote'];
@@ -62,11 +62,11 @@ async function runConvert(args: string[]) {
 
   const quiet = v.quiet || v.json;
   const s = !quiet && process.stderr.isTTY ? p.spinner() : null;
-  s?.start('Reading archive');
+  s?.start('Reading the archive…');
   try {
     const r = convert({
       input: positionals[0]!, out: v.out!, tz: v.tz, formats: formats as Format[], exclude, since: v.since, until: v.until, likes: v.likes,
-      onStage: (st) => s?.message({ read: 'Reading archive', parse: 'Parsing posts', write: 'Writing files' }[st]),
+      onProgress: (e) => s?.message(progressText(e)),
     });
     s?.stop(`Wrote ${pc.bold(v.out!)}/index.md`);
     if (v.json) console.log(JSON.stringify(r, null, 2));

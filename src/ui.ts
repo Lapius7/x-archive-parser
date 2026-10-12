@@ -81,3 +81,14 @@ export function hit(r: PostRow, o: { query?: string; regex?: boolean; full?: boo
   const body = o.full ? r.text : oneLine(r.text, Math.max(40, o.width - 28));
   return `${head} ${highlight(body, o.query, o.regex)}\n${' '.repeat(24)}${pc.dim(r.url)}`;
 }
+
+const STAGE_LABEL = { read: 'Reading the archive', parse: 'Reading posts', write: 'Writing monthly files' } as const;
+
+/** スピナーの文言に使う進捗表示。例: Reading posts ━━━━━──── 56%  1,340 / 2,400 */
+export function progressText(e: { stage: keyof typeof STAGE_LABEL; done: number; total: number }, width = 20): string {
+  const label = STAGE_LABEL[e.stage];
+  if (e.total <= 0) return `${label}…`;
+  const ratio = Math.min(1, e.done / e.total);
+  const filled = Math.round(ratio * width);
+  return `${label} ${pc.cyan('━'.repeat(filled))}${pc.dim('─'.repeat(width - filled))} ${String(Math.round(ratio * 100)).padStart(3)}%  ${pc.dim(`${num(e.done)} / ${num(e.total)}`)}`;
+}
