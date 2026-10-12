@@ -151,3 +151,19 @@ describe('language', () => {
     expect(parseLang('fr')).toBeUndefined();
   });
 });
+
+describe('note tweets', () => {
+  it('restores the full text of a truncated long post', () => {
+    const root = mkdtempSync(join(tmpdir(), 'xap-note-'));
+    mkdirSync(join(root, 'in/data'), { recursive: true });
+    const cut = tweet({ id_str: '7', created_at: 'Mon Apr 01 03:04:05 +0000 2024', full_text: 'long start of a post…' });
+    writeFileSync(join(root, 'in/data/tweets.js'), 'window.YTD.tweets.part0 = ' + JSON.stringify([cut]));
+    const note = { noteTweet: { createdAt: '2024-04-01T03:04:05.000Z', core: { text: 'long start of a post, and the rest https://t.co/z', urls: [{ shortUrl: 'https://t.co/z', expandedUrl: 'https://example.com/z' }] } } };
+    writeFileSync(join(root, 'in/data/note-tweet.js'), 'window.YTD.note_tweet.part0 = ' + JSON.stringify([note]));
+    const r = convert({ input: join(root, 'in'), out: join(root, 'out'), tz: 'UTC' });
+    const jsonl = readFileSync(join(r.out, '2024', '2024-04.jsonl'), 'utf8');
+    expect(jsonl).toContain('long start of a post, and the rest https://example.com/z');
+    expect(jsonl).not.toContain('…');
+  });
+});
+

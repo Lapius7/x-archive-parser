@@ -24,14 +24,46 @@ interface RawTweet {
 
 const decode = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 
-export function toPost(item: unknown, username?: string): Post | null {
+interface Note { text: string; urls: { shortUrl?: string; expandedUrl?: string }[] }
+/** note-tweet.js（長文投稿の全文）を作成日時（秒）で引けるようにしたもの */
+export type NoteIndex = Map<string, Note[]>;
+
+export function buildNotes(items: unknown[]): NoteIndex {
+  const idx: NoteIndex = new Map();
+  for (const it of items) {
+    const n = (it as { noteTweet?: { createdAt?: string; core?: { text?: string; urls?: Note['urls'] } } })?.noteTweet;
+    if (!n?.createdAt || !n.core?.text) continue;
+    const key = n.createdAt.slice(0, 19);
+    const list = idx.get(key) ?? [];
+    list.push({ text: n.core.text, urls: n.core.urls ?? [] });
+    idx.set(key, list);
+  }
+  return idx;
+}
+
+/** 本文が切り詰められた投稿（…で終わる）に対応する長文投稿があれば、その全文を返す */
+function fullNote(t: RawTweet, date: Date, notes?: NoteIndex): Note | undefined {
+  const cut = t.full_text ?? t.text ?? '';
+  if (!notes || !/…\s*(https:\/\/t\.co\/\S+\s*)?$/.test(cut)) return undefined;
+  const prefix = decode(cut).replace(/\s*(…|https:\/\/t\.co\/\S+)\s*$/, '').slice(0, 30);
+  return notes.get(date.toISOString().slice(0, 19))?.find((n) => n.text.startsWith(prefix));
+}
+
+export function toPost(item: unknown, username?: string, notes?: NoteIndex): Post | null {
   const t = ((item as { tweet?: RawTweet })?.tweet ?? item) as RawTweet;
   const id = t?.id_str;
   const date = t?.created_at ? new Date(t.created_at) : null;
   if (!id || !date || Number.isNaN(date.getTime())) return null;
 
-  let text = t.full_text ?? t.text ?? '';
+  const note = fullNote(t, date, notes);
+  let text = note?.text ?? t.full_text ?? t.text ?? '';
   const urls: string[] = [];
+  for (const u of note?.urls ?? []) {
+    if (u.shortUrl && u.expandedUrl) {
+      text = text.split(u.shortUrl).join(u.expandedUrl);
+      urls.push(u.expandedUrl);
+    }
+  }
   for (const u of t.entities?.urls ?? []) {
     if (u.url && u.expanded_url) {
       text = text.split(u.url).join(u.expanded_url);

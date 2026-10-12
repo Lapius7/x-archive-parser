@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, wri
 import { join, resolve } from 'node:path';
 import { getLang, t, type Lang } from './i18n.js';
 import { openSource, parseYtd } from './source.js';
-import { toLike, toPost, toUsername } from './parse.js';
+import { buildNotes, toLike, toPost, toUsername } from './parse.js';
 import { localTime, monthKey, renderCsv, renderIndex, renderJsonl, renderLikes, renderMonth, renderReadme, toRow } from './render.js';
 import type { LikeRow, Post, PostKind, PostRow, RunMeta } from './types.js';
 
@@ -82,6 +82,7 @@ export function convert(o: ConvertOptions): ConvertResult {
   if (tweetFiles.length === 0) throw new Error(t('noTweets'));
   const username = src.files('account').flatMap((f) => parseYtd(f)).map(toUsername).find(Boolean);
 
+  const notes = buildNotes(src.files('note[-_]tweets?').flatMap((f) => parseYtd(f)));
   const parsed = tweetFiles.map((f) => parseYtd(f));
   const totalPosts = parsed.reduce((n, a) => n + a.length, 0);
   let done = 0;
@@ -93,7 +94,7 @@ export function convert(o: ConvertOptions): ConvertResult {
   for (const items of parsed) {
     for (const raw of items) {
       if (++done % 200 === 0) report('parse', done, totalPosts);
-      const p = toPost(raw, username);
+      const p = toPost(raw, username, notes);
       if (!p || seen.has(p.id)) continue;
       seen.add(p.id);
       const row = toRow(p, tz);
