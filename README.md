@@ -97,9 +97,22 @@ x-archive-parser search -E "^(good|bad) morning" --hashtag daily --media -n 0
 | `--min-likes <n>` | Minimum like count |
 | `-n, --limit <n>` | Number of hits to show (default 20, newest first; `0` for all) |
 | `--full` | Show the whole text instead of one line |
-| `--json` | Output JSON |
+| `-f, --format <fmt>` | `text` (default), `json`, `jsonl` or `csv` |
+| `-o, --output <file>` | Save the results to a file instead of printing (format defaults to `jsonl`) |
+| `--json` | Same as `-f json` |
+
+```bash
+x-archive-parser search "ramen" -f json            # JSON array on stdout
+x-archive-parser search "ramen" -n 0 -o ramen.csv -f csv   # all hits to a file
+```
 
 Exits with code 1 when nothing matches. The folder defaults to `./x-posts` (newest run).
+
+## Language
+
+Output is in English or Japanese. Pick it with `-l, --lang <en|ja>` (before or after the subcommand) or the `XAP_LANG` environment variable. Without either, it follows `LC_ALL`, `LC_MESSAGES` or `LANG`. The generated `README.md` and `index.md` use the same language; the monthly Markdown, JSONL and CSV stay in English so they are easy to grep.
+
+The last line of a conversion prints the absolute path of the new folder (`Saved to: ...`). With `-q` it prints only that path.
 
 ### stats
 

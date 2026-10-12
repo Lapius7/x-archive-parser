@@ -1,4 +1,5 @@
 import { inflateRawSync } from 'node:zlib';
+import { t } from './i18n.js';
 
 export interface ZipEntry { name: string; read(): Buffer }
 
@@ -8,12 +9,12 @@ export function readZip(buf: Buffer): ZipEntry[] {
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 0xffff); i--) {
     if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
   }
-  if (eocd < 0) throw new Error('zip の終端レコードが見つかりません');
+  if (eocd < 0) throw new Error(t('zipEnd'));
   const count = buf.readUInt16LE(eocd + 10);
   let p = buf.readUInt32LE(eocd + 16);
   const out: ZipEntry[] = [];
   for (let n = 0; n < count; n++) {
-    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error('zip の中央ディレクトリが壊れています');
+    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error(t('zipDir'));
     const method = buf.readUInt16LE(p + 10);
     const csize = buf.readUInt32LE(p + 20);
     const nlen = buf.readUInt16LE(p + 28);
@@ -29,7 +30,7 @@ export function readZip(buf: Buffer): ZipEntry[] {
         const data = buf.subarray(start, start + csize);
         if (method === 0) return data;
         if (method === 8) return inflateRawSync(data);
-        throw new Error(`未対応の圧縮方式です: ${method}`);
+        throw new Error(t('zipMethod', method));
       },
     });
   }

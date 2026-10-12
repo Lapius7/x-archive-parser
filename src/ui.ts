@@ -1,4 +1,5 @@
 import pc from 'picocolors';
+import { t } from './i18n.js';
 import type { ConvertResult } from './index.js';
 import type { Stats } from './stats.js';
 import type { PostRow } from './types.js';
@@ -33,32 +34,32 @@ const KIND_COLOR: Record<string, (s: string) => string> = { post: pc.green, repl
 
 export function summary(r: ConvertResult): string {
   const lines: string[] = [];
-  lines.push(`${pc.bold(num(r.total))} posts${r.username ? ` by ${pc.cyan('@' + r.username)}` : ''}${r.range ? pc.dim(`  ${r.range[0]} → ${r.range[1]}`) : ''}`);
+  lines.push(`${t('postsBy', pc.bold(num(r.total)))}${r.username ? t('byUser', pc.cyan('@' + r.username)) : ''}${r.range ? pc.dim(`  ${r.range[0]} → ${r.range[1]}`) : ''}`);
   lines.push(
     (Object.entries(r.kinds) as [string, number][])
       .filter(([, n]) => n > 0)
-      .map(([k, n]) => `${KIND_COLOR[k]!('●')} ${k} ${pc.bold(num(n))}`).join('   '),
+      .map(([k, n]) => `${KIND_COLOR[k]!('●')} ${t('kind', k)} ${pc.bold(num(n))}`).join('   '),
   );
-  if (r.skipped) lines.push(pc.dim(`${num(r.skipped)} posts filtered out`));
-  if (r.likes) lines.push(`♥ ${num(r.likes)} likes saved`);
-  if (r.years.length) lines.push('', pc.bold('By year'), chart(r.years));
-  if (r.months.length > 1) lines.push('', pc.bold('By month'), `  ${pc.cyan(sparkline(r.months.map(([, n]) => n)))}`);
+  if (r.skipped) lines.push(pc.dim(t('filteredOut', num(r.skipped))));
+  if (r.likes) lines.push(t('likesSaved', num(r.likes)));
+  if (r.years.length) lines.push('', pc.bold(t('byYear')), chart(r.years));
+  if (r.months.length > 1) lines.push('', pc.bold(t('byMonth')), `  ${pc.cyan(sparkline(r.months.map(([, n]) => n)))}`);
   return lines.join('\n');
 }
 
 export function statsReport(s: Stats): string {
-  const section = (t: string, rows: [string, number][]) => (rows.length ? ['', pc.bold(t), chart(rows, 20)] : []);
+  const section = (title: string, rows: [string, number][]) => (rows.length ? ['', pc.bold(title), chart(rows, 20)] : []);
   const hours = s.byHour.map((v, h) => [String(h).padStart(2, '0'), v] as [string, number]);
   const peak = hours.reduce((a, b) => (b[1] > a[1] ? b : a), hours[0]!);
   return [
-    `${pc.bold(num(s.total))} posts over ${pc.bold(num(s.activeDays))} active days${s.range ? pc.dim(`  ${s.range[0]} → ${s.range[1]}`) : ''}`,
-    ...section('By kind', Object.entries(s.byKind)),
-    ...section('By year', s.byYear),
-    '', pc.bold('By hour of day'), `  ${pc.cyan(sparkline(s.byHour))}  ${pc.dim(`00 → 23, peak ${peak[0]}:00`)}`,
-    ...section('Top hashtags', s.topHashtags),
-    ...section('Top mentions', s.topMentions),
-    ...section('Top link domains', s.topDomains),
-    ...(s.topLiked.length ? ['', pc.bold('Most liked'), ...s.topLiked.map((p) => `  ♥ ${String(p.likes).padStart(5)}  ${oneLine(p.text, 70)}  ${pc.dim(p.url)}`)] : []),
+    `${t('statsHead', pc.bold(num(s.total)), pc.bold(num(s.activeDays)))}${s.range ? pc.dim(`  ${s.range[0]} → ${s.range[1]}`) : ''}`,
+    ...section(t('byKind'), Object.entries(s.byKind).map(([k, v]) => [t('kind', k), v] as [string, number])),
+    ...section(t('byYear'), s.byYear),
+    '', pc.bold(t('byHour')), `  ${pc.cyan(sparkline(s.byHour))}  ${pc.dim(t('peak', peak[0]!))}`,
+    ...section(t('topHashtags'), s.topHashtags),
+    ...section(t('topMentions'), s.topMentions),
+    ...section(t('topDomains'), s.topDomains),
+    ...(s.topLiked.length ? ['', pc.bold(t('mostLiked')), ...s.topLiked.map((p) => `  ♥ ${String(p.likes).padStart(5)}  ${oneLine(p.text, 70)}  ${pc.dim(p.url)}`)] : []),
   ].join('\n');
 }
 
@@ -82,11 +83,11 @@ export function hit(r: PostRow, o: { query?: string; regex?: boolean; full?: boo
   return `${head} ${highlight(body, o.query, o.regex)}\n${' '.repeat(24)}${pc.dim(r.url)}`;
 }
 
-const STAGE_LABEL = { read: 'Reading the archive', parse: 'Reading posts', write: 'Writing monthly files' } as const;
+const stageLabel = (s: 'read' | 'parse' | 'write') => t(s === 'read' ? 'stageRead' : s === 'parse' ? 'stageParse' : 'stageWrite');
 
 /** スピナーの文言に使う進捗表示。例: Reading posts ━━━━━──── 56%  1,340 / 2,400 */
-export function progressText(e: { stage: keyof typeof STAGE_LABEL; done: number; total: number }, width = 20): string {
-  const label = STAGE_LABEL[e.stage];
+export function progressText(e: { stage: 'read' | 'parse' | 'write'; done: number; total: number }, width = 20): string {
+  const label = stageLabel(e.stage);
   if (e.total <= 0) return `${label}…`;
   const ratio = Math.min(1, e.done / e.total);
   const filled = Math.round(ratio * width);
@@ -102,12 +103,12 @@ export function stageTimer() {
     /** 完了後に各段階の件数と時間を行にして返す */
     lines(r: { total: number; skipped: number; months: unknown[] }): string[] {
       const end = Date.now();
-      const t = [at.read ?? start, at.parse ?? start, at.write ?? start, end];
+      const ts = [at.read ?? start, at.parse ?? start, at.write ?? start, end];
       const sec = (a: number, b: number) => pc.dim(`${((b - a) / 1000).toFixed(2)}s`);
       return [
-        `${pc.green('✔')} Opened the archive  ${sec(t[0]!, t[1]!)}`,
-        `${pc.green('✔')} Read ${pc.bold(num(r.total + r.skipped))} posts${r.skipped ? pc.dim(` (${num(r.skipped)} skipped)`) : ''}  ${sec(t[1]!, t[2]!)}`,
-        `${pc.green('✔')} Wrote ${pc.bold(num(r.months.length))} monthly files  ${sec(t[2]!, t[3]!)}`,
+        `${pc.green('✔')} ${t('stepOpened')}  ${sec(ts[0]!, ts[1]!)}`,
+        `${pc.green('✔')} ${t('stepRead', pc.bold(num(r.total + r.skipped)))}${r.skipped ? pc.dim(t('stepSkipped', num(r.skipped))) : ''}  ${sec(ts[1]!, ts[2]!)}`,
+        `${pc.green('✔')} ${t('stepWrote', pc.bold(num(r.months.length)))}  ${sec(ts[2]!, ts[3]!)}`,
       ];
     },
   };

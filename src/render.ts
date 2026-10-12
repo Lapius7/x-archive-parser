@@ -1,3 +1,4 @@
+import type { Lang } from './i18n.js';
 import type { LikeRow, Post, PostRow, RunMeta } from './types.js';
 
 export function monthKey(iso: string, tz: string): string {
@@ -53,79 +54,123 @@ export interface IndexInfo {
   likes?: number;
 }
 
-export function renderIndex(i: IndexInfo): string {
-  const rows = [...i.months].map(([m, n]) => `| ${m.slice(0, 4)}/${m}.md | ${n} |`).join('\n');
-  return `# X archive index
+const n = (x: number) => x.toLocaleString('en-US');
+const mb = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
-${i.username ? `Account: @${i.username}\n` : ''}Total: ${i.total} posts${i.range ? ` (${i.range[0]} to ${i.range[1]})` : ''}. Timezone: ${i.tz}.${i.likes ? `\nLikes: ${i.likes} (likes.jsonl).` : ''}
-
-## How to search
-
-1. Run \`x-archive-parser search "keyword" .\` or \`grep -ri "keyword" --include=*.jsonl .\` to find candidate months.
+/** README.md と index.md に使う文言。月別ファイルと JSONL は検索しやすいよう英語のまま */
+const L = {
+  en: {
+    indexTitle: '# X archive index',
+    account: 'Account', total: (t: number, r?: [string, string]) => `Total: ${t} posts${r ? ` (${r[0]} to ${r[1]})` : ''}`,
+    tz: 'Timezone', likes: (c: number) => `Likes: ${c} (likes.jsonl).`,
+    howTitle: '## How to search',
+    how: (c: string) => `1. Run \`${c}\` or \`grep -ri "keyword" --include=*.jsonl .\` to find candidate months.
 2. Open the matching \`YYYY/YYYY-MM.md\` for context.
-3. Use \`jq\` on the JSONL for structured filters. Fields: id, localTime, kind, text, url, replyToUser, hashtags, mentions, media, likes, reposts.
+3. Use \`jq\` on the JSONL for structured filters. Fields: id, localTime, kind, text, url, replyToUser, hashtags, mentions, media, likes, reposts.`,
+    monthsTitle: '## Months', fileCol: 'File', postsCol: 'Posts',
+    readmeTitle: '# X archive conversion', created: 'Created', runId: 'Run id', tool: 'Tool',
+    summary: '## Summary', item: 'Item', value: 'Value', posts: 'Posts', byKind: 'Posts by kind', period: 'Period of posts',
+    monthsWith: 'Months with posts', liked: 'Liked posts saved', notSaved: 'not saved', formats: 'Formats', filters: 'Filters', none: 'none',
+    leftOut: (c: number) => ` (${c} posts left out)`,
+    fPeriod: (s: string, u: string) => `period: ${s} to ${u}`, start: 'start', end: 'end', fExclude: (k: string) => `excluded kinds: ${k}`,
+    source: '## Source', zip: 'Zip file', folder: 'Folder',
+    files: '## Files', fIndex: 'entry point for agents (totals and how to search)', fMeta: 'this information as JSON',
+    fMonth: 'posts of each month', fLikes: 'liked posts',
+    use: '## Use', perMonth: '## Posts per month',
+    kinds: (k: Record<string, number>) => `post ${n(k.post!)}, reply ${n(k.reply!)}, repost ${n(k.repost!)}, quote ${n(k.quote!)}`,
+  },
+  ja: {
+    indexTitle: '# X アーカイブの目次',
+    account: 'アカウント', total: (t: number, r?: [string, string]) => `合計: ${t} 件${r ? `（${r[0]} から ${r[1]}）` : ''}`,
+    tz: 'タイムゾーン', likes: (c: number) => `いいね: ${c} 件（likes.jsonl）`,
+    howTitle: '## 検索のしかた',
+    how: (c: string) => `1. \`${c}\` または \`grep -ri "キーワード" --include=*.jsonl .\` で、該当しそうな月を探します。
+2. 該当する \`YYYY/YYYY-MM.md\` を開いて、前後の文脈を確認します。
+3. 条件を細かく絞るときは、JSONL に \`jq\` を使います。項目: id, localTime, kind, text, url, replyToUser, hashtags, mentions, media, likes, reposts。`,
+    monthsTitle: '## 月別', fileCol: 'ファイル', postsCol: '投稿数',
+    readmeTitle: '# X アーカイブの変換結果', created: '作成日時', runId: '実行 ID', tool: 'ツール',
+    summary: '## 概要', item: '項目', value: '内容', posts: '投稿数', byKind: '種別ごとの投稿数', period: '投稿の期間',
+    monthsWith: '投稿のあった月数', liked: '保存したいいね', notSaved: '保存していません', formats: '形式', filters: '絞り込み', none: 'なし',
+    leftOut: (c: number) => `（${c} 件を除外）`,
+    fPeriod: (s: string, u: string) => `期間: ${s} から ${u}`, start: '最初', end: '最後', fExclude: (k: string) => `除外した種別: ${k}`,
+    source: '## 元データ', zip: 'zip ファイル', folder: 'フォルダ',
+    files: '## ファイル', fIndex: 'エージェント向けの入口（合計と検索のしかた）', fMeta: 'この情報を JSON にしたもの',
+    fMonth: '月ごとの投稿', fLikes: 'いいねした投稿',
+    use: '## 使い方', perMonth: '## 月ごとの投稿数',
+    kinds: (k: Record<string, number>) => `投稿 ${n(k.post!)}、リプライ ${n(k.reply!)}、リポスト ${n(k.repost!)}、引用 ${n(k.quote!)}`,
+  },
+} as const;
 
-## Months
+export function renderIndex(i: IndexInfo, lang: Lang): string {
+  const s = L[lang];
+  const rows = [...i.months].map(([m, c]) => `| ${m.slice(0, 4)}/${m}.md | ${c} |`).join('\n');
+  return `${s.indexTitle}
 
-| File | Posts |
+${i.username ? `${s.account}: @${i.username}\n` : ''}${s.total(i.total, i.range)}. ${s.tz}: ${i.tz}.${i.likes ? `\n${s.likes(i.likes)}` : ''}
+
+${s.howTitle}
+
+${s.how('x-archive-parser search "keyword" .')}
+
+${s.monthsTitle}
+
+| ${s.fileCol} | ${s.postsCol} |
 |---|---|
 ${rows}
 `;
 }
 
-export const renderLikes = (likes: LikeRow[]) => renderJsonl(likes);
-
-const n = (x: number) => x.toLocaleString('en-US');
-const mb = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
-
 /** 実行フォルダの説明書。あとから「いつ・何から・どんな条件で作ったか」が分かるようにする */
-export function renderReadme(m: RunMeta): string {
+export function renderReadme(m: RunMeta, lang: Lang): string {
+  const s = L[lang];
   const filters = [
-    m.since || m.until ? `period: ${m.since ?? 'start'} to ${m.until ?? 'end'}` : '',
-    m.exclude.length ? `excluded kinds: ${m.exclude.join(', ')}` : '',
+    m.since || m.until ? s.fPeriod(m.since ?? s.start, m.until ?? s.end) : '',
+    m.exclude.length ? s.fExclude(m.exclude.join(', ')) : '',
   ].filter(Boolean);
   const months = Object.entries(m.months).map(([k, c]) => `| ${k.slice(0, 4)}/${k}.md | ${n(c)} |`).join('\n');
   const cmd = (c: string) => `x-archive-parser ${c} "${m.folder}"`;
-  return `# X archive conversion
+  return `${s.readmeTitle}
 
-${m.username ? `Account: @${m.username}\n` : ''}Created: ${m.createdAtLocal} (${m.tz}) / ${m.createdAt} (UTC)
-Run id: ${m.runId}
-Tool: ${m.tool}
+${m.username ? `${s.account}: @${m.username}\n` : ''}${s.created}: ${m.createdAtLocal} (${m.tz}) / ${m.createdAt} (UTC)
+${s.runId}: ${m.runId}
+${s.tool}: ${m.tool}
 
-## Summary
+${s.summary}
 
-| Item | Value |
+| ${s.item} | ${s.value} |
 |---|---|
-| Posts | ${n(m.total)} |
-| Posts by kind | post ${n(m.kinds.post)}, reply ${n(m.kinds.reply)}, repost ${n(m.kinds.repost)}, quote ${n(m.kinds.quote)} |
-| Period of posts | ${m.range ? `${m.range[0]} to ${m.range[1]}` : '-'} |
-| Months with posts | ${Object.keys(m.months).length} |
-| Liked posts saved | ${m.likes ? n(m.likes) : 'not saved'} |
-| Timezone | ${m.tz} |
-| Formats | ${m.formats.join(', ')} |
-| Filters | ${filters.length ? filters.join('; ') : 'none'}${m.skipped ? ` (${n(m.skipped)} posts left out)` : ''} |
+| ${s.posts} | ${n(m.total)} |
+| ${s.byKind} | ${s.kinds(m.kinds)} |
+| ${s.period} | ${m.range ? `${m.range[0]} ${lang === "ja" ? "から" : "to"} ${m.range[1]}` : '-'} |
+| ${s.monthsWith} | ${Object.keys(m.months).length} |
+| ${s.liked} | ${m.likes ? n(m.likes) : s.notSaved} |
+| ${s.tz} | ${m.tz} |
+| ${s.formats} | ${m.formats.join(', ')} |
+| ${s.filters} | ${filters.length ? filters.join('; ') : s.none}${m.skipped ? s.leftOut(m.skipped) : ''} |
 
-## Source
+${s.source}
 
-- ${m.source.kind === 'zip' ? 'Zip file' : 'Folder'}: ${m.source.path}${m.source.bytes ? ` (${mb(m.source.bytes)})` : ''}
+- ${m.source.kind === 'zip' ? s.zip : s.folder}: ${m.source.path}${m.source.bytes ? ` (${mb(m.source.bytes)})` : ''}
 
-## Files
+${s.files}
 
-- \`index.md\`: entry point for agents (totals and how to search)
-- \`meta.json\`: this information as JSON
-- \`YYYY/YYYY-MM.md|jsonl|csv\`: posts of each month${m.likes ? '\n- `likes.jsonl`: liked posts' : ''}
+- \`index.md\`: ${s.fIndex}
+- \`meta.json\`: ${s.fMeta}
+- \`YYYY/YYYY-MM.md|jsonl|csv\`: ${s.fMonth}${m.likes ? `\n- \`likes.jsonl\`: ${s.fLikes}` : ''}
 
-## Use
+${s.use}
 
 \`\`\`bash
 ${cmd('search "keyword"')}
 ${cmd('stats')}
 \`\`\`
 
-## Posts per month
+${s.perMonth}
 
-| File | Posts |
+| ${s.fileCol} | ${s.postsCol} |
 |---|---|
 ${months}
 `;
 }
+
+export const renderLikes = (likes: LikeRow[]) => renderJsonl(likes);

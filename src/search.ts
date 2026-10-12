@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { t } from './i18n.js';
 import type { PostKind, PostRow } from './types.js';
 
 /**
@@ -9,7 +10,7 @@ import type { PostKind, PostRow } from './types.js';
 export function resolveOutDir(dir: string): string {
   if (existsSync(join(dir, 'index.md'))) return dir;
   const runs = existsSync(dir) ? readdirSync(dir).filter((e) => existsSync(join(dir, e, 'index.md'))).sort() : [];
-  if (runs.length === 0) throw new Error(`変換結果が見つかりません: ${dir}（先に変換してください）`);
+  if (runs.length === 0) throw new Error(t('noResults', dir));
   const key = (name: string) => {
     try { return (JSON.parse(readFileSync(join(dir, name, 'meta.json'), 'utf8')) as { createdAt: string }).createdAt; } catch { return ''; }
   };

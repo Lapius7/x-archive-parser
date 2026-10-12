@@ -2,9 +2,11 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateRawSync } from 'node:zlib';
-import { describe, expect, it } from 'vitest';
-import { computeStats, convert, resolveOutDir, search } from '../src/index.js';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { computeStats, convert, parseLang, resolveOutDir, search, setLang } from '../src/index.js';
 import { readZip } from '../src/zip.js';
+
+beforeAll(() => setLang('en'));
 
 const tweet = (o: Record<string, unknown>) => ({ tweet: o });
 const TWEETS = [
@@ -77,12 +79,12 @@ describe('convert', () => {
     const r = convert({ ...base, since: '2024-02-01' });
     expect(r.out).toBe(join(root, 'out'));
     expect(existsSync(join(root, 'out/2024/2024-01.md'))).toBe(false);
-    expect(() => convert({ ...base, out: join(root, 'in') })).toThrow(/空ではなく/);
+    expect(() => convert({ ...base, out: join(root, 'in') })).toThrow(/not empty/);
   });
 
   it('rejects bad timezone and date', () => {
     const root = fixture();
-    expect(() => convert({ input: join(root, 'in'), out: join(root, 'o'), tz: 'Mars/Base' })).toThrow(/タイムゾーン/);
+    expect(() => convert({ input: join(root, 'in'), out: join(root, 'o'), tz: 'Mars/Base' })).toThrow(/timezone/i);
     expect(() => convert({ input: join(root, 'in'), out: join(root, 'o'), since: '2024/01/01' })).toThrow(/YYYY-MM-DD/);
   });
 });
@@ -138,5 +140,14 @@ describe('zip', () => {
     expect(z.map((e) => e.name)).toEqual(['data/tweets.js', 'x.txt']);
     expect(z[0]!.read().toString()).toBe('abc'.repeat(50));
     expect(z[1]!.read().toString()).toBe('plain');
+  });
+});
+
+describe('language', () => {
+  it('parses language names', () => {
+    expect(parseLang('ja')).toBe('ja');
+    expect(parseLang('ja-JP')).toBe('ja');
+    expect(parseLang('EN')).toBe('en');
+    expect(parseLang('fr')).toBeUndefined();
   });
 });

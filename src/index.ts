@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { getLang, t, type Lang } from './i18n.js';
 import { openSource, parseYtd } from './source.js';
 import { toLike, toPost, toUsername } from './parse.js';
 import { localTime, monthKey, renderCsv, renderIndex, renderJsonl, renderLikes, renderMonth, renderReadme, toRow } from './render.js';
@@ -8,6 +9,7 @@ import type { LikeRow, Post, PostKind, PostRow, RunMeta } from './types.js';
 
 export type { Post, PostKind, PostRow, LikeRow };
 export { toPost, toLike };
+export { detectLang, getLang, parseLang, setLang, type Lang } from './i18n.js';
 export { iterRows, resolveOutDir, search, type SearchOptions } from './search.js';
 export { computeStats, type Stats } from './stats.js';
 
@@ -33,6 +35,8 @@ export interface ConvertOptions {
   since?: string;
   until?: string;
   likes?: boolean;
+  /** README.md と index.md の言語（既定は現在の言語設定） */
+  lang?: Lang;
   /** 進捗通知。read は件数なし、parse は投稿数、write は月数で done/total を数える */
   onProgress?: (e: ProgressEvent) => void;
 }
@@ -61,20 +65,21 @@ export function validateTz(tz: string): boolean {
 
 export function convert(o: ConvertOptions): ConvertResult {
   const tz = o.tz ?? systemTz();
-  if (!validateTz(tz)) throw new Error(`不正なタイムゾーンです: ${tz}`);
+  const lang = o.lang ?? getLang();
+  if (!validateTz(tz)) throw new Error(t('badTz', tz));
   const formats = new Set<Format>(o.formats ?? ['md', 'jsonl']);
   const exclude = new Set(o.exclude ?? []);
-  for (const d of [o.since, o.until]) if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(`日付は YYYY-MM-DD で指定してください: ${d}`);
+  for (const d of [o.since, o.until]) if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(t('badDate', d));
 
   if (o.here && existsSync(o.out) && readdirSync(o.out).length > 0 && !existsSync(join(o.out, 'index.md'))) {
-    throw new Error(`出力先が空ではなく index.md もありません: ${o.out}`);
+    throw new Error(t('notEmpty', o.out));
   }
 
   const report = (stage: ProgressEvent['stage'], done = 0, total = 0) => o.onProgress?.({ stage, done, total });
   report('read');
   const src = openSource(o.input);
   const tweetFiles = src.files('tweets?');
-  if (tweetFiles.length === 0) throw new Error('data/tweets*.js が見つかりません。X のアーカイブですか？');
+  if (tweetFiles.length === 0) throw new Error(t('noTweets'));
   const username = src.files('account').flatMap((f) => parseYtd(f)).map(toUsername).find(Boolean);
 
   const parsed = tweetFiles.map((f) => parseYtd(f));
@@ -135,7 +140,7 @@ export function convert(o: ConvertOptions): ConvertResult {
   if (likes.length) writeFileSync(join(dest, 'likes.jsonl'), renderLikes(likes));
   const total = [...months.values()].reduce((a, b) => a + b, 0);
   const range: [string, string] | undefined = first ? [first, last] : undefined;
-  writeFileSync(join(dest, 'index.md'), renderIndex({ months, tz, total, username, range, likes: likes.length }));
+  writeFileSync(join(dest, 'index.md'), renderIndex({ months, tz, total, username, range, likes: likes.length }, lang));
 
   const inputPath = resolve(o.input);
   const meta: RunMeta = {
@@ -145,7 +150,7 @@ export function convert(o: ConvertOptions): ConvertResult {
     months: Object.fromEntries(months), folder: resolve(dest),
   };
   writeFileSync(join(dest, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
-  writeFileSync(join(dest, 'README.md'), renderReadme(meta));
+  writeFileSync(join(dest, 'README.md'), renderReadme(meta, lang));
 
-  return { username, tz, total, skipped, months: [...months], years: [...years], kinds, range, likes: likes.length, out: dest, runId, createdAt: meta.createdAt };
+  return { username, tz, total, skipped, months: [...months], years: [...years], kinds, range, likes: likes.length, out: resolve(dest), runId, createdAt: meta.createdAt };
 }
