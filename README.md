@@ -8,6 +8,7 @@ A CLI that converts an X (Twitter) archive into per-month Markdown, JSONL and CS
 
 - [Quick start](#quick-start)
 - [Install](#install)
+  - [With lapacks](#with-lapacks)
 - [Getting your archive](#getting-your-archive)
 - [Interactive mode](#interactive-mode)
 - [convert](#convert)
@@ -28,7 +29,7 @@ A CLI that converts an X (Twitter) archive into per-month Markdown, JSONL and CS
 ## Quick start
 
 ```bash
-pnpm add -g @lapius/x-archive-parser
+pnpm add -g @lapius/x-archive-parser     # or: lapacks install x-archive-parser
 
 x-archive-parser                                   # interactive wizard
 x-archive-parser twitter-2026-10-05-xxxx.zip       # convert directly
@@ -44,13 +45,33 @@ Saved to: /home/me/x-posts/lapius7_20261013-153012_a1b2c3d4
 
 ## Install
 
+Pick one of the following.
+
 ```bash
+# pnpm (recommended)
 pnpm add -g @lapius/x-archive-parser
-# or run once without installing
+
+# npm
+npm i -g @lapius/x-archive-parser
+
+# run once without installing
 pnpm dlx @lapius/x-archive-parser --help
 ```
 
-Requires Node.js 20 or later. `npm i -g @lapius/x-archive-parser` works as well.
+### With lapacks
+
+This package is registered in [lapacks](https://github.com/Lapius7/lapacks), the package manager for `@lapius` packages. If you already use it:
+
+```bash
+lapacks install x-archive-parser     # install
+lapacks update x-archive-parser      # update
+lapacks remove x-archive-parser      # remove
+lapacks info x-archive-parser        # details
+```
+
+Running `lapacks` with no arguments opens a TUI where you can do the same. To get lapacks itself, run `pnpm add -g @lapius/lapacks`.
+
+Requires Node.js 20 or later. Use only one of pnpm and npm for global installs; installing with both makes the command appear twice.
 
 ## Getting your archive
 

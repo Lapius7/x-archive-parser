@@ -8,6 +8,7 @@ X（旧Twitter）のアーカイブを、月ごとの Markdown・JSONL・CSV に
 
 - [クイックスタート](#クイックスタート)
 - [インストール](#インストール)
+  - [lapacks で入れる](#lapacks-で入れる)
 - [アーカイブの入手](#アーカイブの入手)
 - [対話モード](#対話モード)
 - [convert](#convert)
@@ -28,7 +29,7 @@ X（旧Twitter）のアーカイブを、月ごとの Markdown・JSONL・CSV に
 ## クイックスタート
 
 ```bash
-pnpm add -g @lapius/x-archive-parser
+pnpm add -g @lapius/x-archive-parser     # または: lapacks install x-archive-parser
 
 x-archive-parser                                   # 対話モード
 x-archive-parser twitter-2026-10-05-xxxx.zip       # 直接変換
@@ -44,13 +45,33 @@ x-archive-parser stats ./x-posts                   # 投稿の集計
 
 ## インストール
 
+次のいずれかで入れられます。
+
 ```bash
+# pnpm（推奨）
 pnpm add -g @lapius/x-archive-parser
+
+# npm
+npm i -g @lapius/x-archive-parser
+
 # インストールせずに1回だけ実行する場合
 pnpm dlx @lapius/x-archive-parser --help
 ```
 
-Node.js 20 以上が必要です。`npm i -g @lapius/x-archive-parser` でも入れられます。
+### lapacks で入れる
+
+このパッケージは、`@lapius` のパッケージ管理 CLI である [lapacks](https://github.com/Lapius7/lapacks) に登録されています。lapacks を使っている場合は、次のコマンドで管理できます。
+
+```bash
+lapacks install x-archive-parser     # インストール
+lapacks update x-archive-parser      # 更新
+lapacks remove x-archive-parser      # 削除
+lapacks info x-archive-parser        # 詳細の表示
+```
+
+引数なしで `lapacks` を起動すると、TUI から同じ操作ができます。lapacks 自体は `pnpm add -g @lapius/lapacks` で入れます。
+
+Node.js 20 以上が必要です。グローバルへのインストールは pnpm と npm のどちらか一方だけにしてください。両方で入れると、コマンドが二重に表示されます。
 
 ## アーカイブの入手
 
