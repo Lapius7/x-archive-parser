@@ -92,3 +92,23 @@ export function progressText(e: { stage: keyof typeof STAGE_LABEL; done: number;
   const filled = Math.round(ratio * width);
   return `${label} ${pc.cyan('━'.repeat(filled))}${pc.dim('─'.repeat(width - filled))} ${String(Math.round(ratio * 100)).padStart(3)}%  ${pc.dim(`${num(e.done)} / ${num(e.total)}`)}`;
 }
+
+/** 段階ごとの所要時間を測る。onProgress に渡して使う */
+export function stageTimer() {
+  const start = Date.now();
+  const at: Partial<Record<'read' | 'parse' | 'write', number>> = {};
+  return {
+    onProgress(e: { stage: 'read' | 'parse' | 'write' }) { at[e.stage] ??= Date.now(); },
+    /** 完了後に各段階の件数と時間を行にして返す */
+    lines(r: { total: number; skipped: number; months: unknown[] }): string[] {
+      const end = Date.now();
+      const t = [at.read ?? start, at.parse ?? start, at.write ?? start, end];
+      const sec = (a: number, b: number) => pc.dim(`${((b - a) / 1000).toFixed(2)}s`);
+      return [
+        `${pc.green('✔')} Opened the archive  ${sec(t[0]!, t[1]!)}`,
+        `${pc.green('✔')} Read ${pc.bold(num(r.total + r.skipped))} posts${r.skipped ? pc.dim(` (${num(r.skipped)} skipped)`) : ''}  ${sec(t[1]!, t[2]!)}`,
+        `${pc.green('✔')} Wrote ${pc.bold(num(r.months.length))} monthly files  ${sec(t[2]!, t[3]!)}`,
+      ];
+    },
+  };
+}

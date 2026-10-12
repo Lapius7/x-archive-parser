@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import * as p from '@clack/prompts';
 import { convert, systemTz, validateTz, type Format, type PostKind } from './index.js';
-import { pc, progressText, summary } from './ui.js';
+import { pc, progressText, stageTimer, summary } from './ui.js';
 
 /** 探す場所。WSL なら Windows 側の全ユーザーの Downloads も見る */
 function searchDirs(): string[] {
@@ -101,12 +101,14 @@ export async function interactive(): Promise<void> {
 
   const s = p.spinner();
   s.start('Reading the archive…');
+  const timer = stageTimer();
   try {
     const r = convert({
       input, out: out as string, tz: tz as string, formats: formats as Format[], exclude: exclude as PostKind[], likes: likes as boolean,
-      onProgress: (e) => s.message(progressText(e)),
+      onProgress: (e) => { timer.onProgress(e); s.message(progressText(e)); },
     });
     s.stop(`Done. Wrote ${pc.bold(r.out)}/index.md`);
+    for (const l of timer.lines(r)) p.log.message(l);
     p.note(summary(r), 'Result');
     p.outro(`Next, try: ${pc.cyan(`x-archive-parser search "keyword" ${r.out}`)}`);
   } catch (e) {
