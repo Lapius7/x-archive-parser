@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -9,6 +10,14 @@ import { renderCsv, renderJsonl } from './render.js';
 import { hit, num, pc, progressText, stageTimer, statsReport, summary } from './ui.js';
 
 const VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
+
+// --help / --version の最後に出す、@lapius 共通の作者表示と lapacks の案内
+function lapiusFooter(): string {
+  const has = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['lapacks'], { stdio: 'ignore' }).status === 0;
+  return '\n作者: Lapius (https://github.com/Lapius7)\n' + (has
+    ? '@lapius のツール: lapacks で一覧・インストール・更新\n'
+    : '@lapius のツール: pnpm add -g @lapius/lapacks で一覧・インストール・更新を管理\n');
+}
 const KINDS = ['post', 'reply', 'repost', 'quote'];
 
 const HELP = {
@@ -205,11 +214,11 @@ function takeLang(argv: string[]): string[] {
 
 const [first, ...rest] = takeLang(process.argv.slice(2));
 try {
-  if (first === '-h' || first === '--help' || first === 'help') process.stdout.write(HELP[getLang()]());
-  else if (first === '-v' || first === '--version') console.log(VERSION);
+  if (first === '-h' || first === '--help' || first === 'help') process.stdout.write(HELP[getLang()]() + lapiusFooter());
+  else if (first === '-v' || first === '--version') process.stdout.write(`x-archive-parser ${VERSION}\n` + lapiusFooter());
   else if (first === undefined) {
     if (process.stdin.isTTY && process.stdout.isTTY) await interactive();
-    else process.stdout.write(HELP[getLang()]());
+    else process.stdout.write(HELP[getLang()]() + lapiusFooter());
   } else if (first === 'search') runSearch(rest);
   else if (first === 'stats') runStats(rest);
   else if (first === 'convert') await runConvert(rest);
