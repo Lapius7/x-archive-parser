@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { computeStats, convert, search } from '../src/index.js';
+import { computeStats, convert, resolveOutDir, search } from '../src/index.js';
 import { readZip } from '../src/zip.js';
 
 const tweet = (o: Record<string, unknown>) => ({ tweet: o });
@@ -31,30 +31,53 @@ describe('convert', () => {
   it('writes monthly files, classifies kinds, expands links and media', () => {
     const root = fixture();
     const r = convert({ input: join(root, 'in'), out: join(root, 'out'), tz: 'UTC', formats: ['md', 'jsonl', 'csv'], likes: true });
+    const d = r.out;
     expect(r.total).toBe(4);
     expect(r.username).toBe('alice');
     expect(r.kinds).toEqual({ post: 1, reply: 1, repost: 1, quote: 1 });
-    const md = readFileSync(join(root, 'out/2024/2024-01.md'), 'utf8');
+    const md = readFileSync(join(d, '2024/2024-01.md'), 'utf8');
     expect(md).toContain('https://www.example.com/x');
     expect(md).toContain('hi & ');
     expect(md).toContain('https://x.com/alice/status/1');
-    expect(readFileSync(join(root, 'out/2024/2024-03.md'), 'utf8')).toContain('![photo](https://pbs.example/p.jpg)');
-    expect(readFileSync(join(root, 'out/2024/2024-02.csv'), 'utf8')).toContain('"yo, ""quoted"""');
-    expect(readFileSync(join(root, 'out/likes.jsonl'), 'utf8')).toContain('"tweetId":"9"');
+    expect(readFileSync(join(d, '2024/2024-03.md'), 'utf8')).toContain('![photo](https://pbs.example/p.jpg)');
+    expect(readFileSync(join(d, '2024/2024-02.csv'), 'utf8')).toContain('"yo, ""quoted"""');
+    expect(readFileSync(join(d, 'likes.jsonl'), 'utf8')).toContain('"tweetId":"9"');
   });
 
-  it('applies filters and cleans stale output on re-run', () => {
+  it('creates a new unique subfolder on every run and never overwrites', () => {
     const root = fixture();
     const base = { input: join(root, 'in'), out: join(root, 'out'), tz: 'UTC' };
-    convert(base);
-    const r = convert({ ...base, exclude: ['repost'], since: '2024-02-01' });
-    expect(r.total).toBe(2);
-    expect(existsSync(join(root, 'out/2024/2024-01.md'))).toBe(false);
+    const a = convert(base);
+    const b = convert({ ...base, exclude: ['repost'], since: '2024-02-01' });
+    expect(a.out).not.toBe(b.out);
+    expect(a.out).toMatch(/alice_\d{8}-\d{6}_[0-9a-f]{8}$/);
+    expect(a.total).toBe(4);
+    expect(b.total).toBe(2);
+    expect(existsSync(join(a.out, '2024/2024-01.md'))).toBe(true); // 1回目は残る
+    expect(existsSync(join(b.out, '2024/2024-01.md'))).toBe(false);
   });
 
-  it('refuses a non-empty folder without index.md', () => {
+  it('writes README.md and meta.json describing the run', () => {
     const root = fixture();
-    expect(() => convert({ input: join(root, 'in'), out: join(root, 'in') })).toThrow(/空ではなく/);
+    const r = convert({ input: join(root, 'in'), out: join(root, 'out'), tz: 'UTC', since: '2024-01-01' });
+    const readme = readFileSync(join(r.out, 'README.md'), 'utf8');
+    expect(readme).toContain('@alice');
+    expect(readme).toContain('| Posts | 4 |');
+    expect(readme).toContain('2024-01-10 to 2024-03-08');
+    expect(readme).toContain('period: 2024-01-01 to end');
+    expect(readme).toContain(join(root, 'in'));
+    const meta = JSON.parse(readFileSync(join(r.out, 'meta.json'), 'utf8'));
+    expect(meta).toMatchObject({ runId: r.runId, total: 4, username: 'alice', tz: 'UTC', range: ['2024-01-10', '2024-03-08'] });
+  });
+
+  it('--here writes into the folder itself and replaces its old output', () => {
+    const root = fixture();
+    const base = { input: join(root, 'in'), out: join(root, 'out'), tz: 'UTC', here: true };
+    convert(base);
+    const r = convert({ ...base, since: '2024-02-01' });
+    expect(r.out).toBe(join(root, 'out'));
+    expect(existsSync(join(root, 'out/2024/2024-01.md'))).toBe(false);
+    expect(() => convert({ ...base, out: join(root, 'in') })).toThrow(/空ではなく/);
   });
 
   it('rejects bad timezone and date', () => {
@@ -81,7 +104,9 @@ describe('search and stats', () => {
   it('filters converted posts', () => {
     const root = fixture();
     const out = join(root, 'out');
-    convert({ input: join(root, 'in'), out, tz: 'UTC' });
+    convert({ input: join(root, 'in'), out, tz: 'UTC', since: '2024-03-01' }); // 古い実行
+    const latest = convert({ input: join(root, 'in'), out, tz: 'UTC' });
+    expect(resolveOutDir(out)).toBe(latest.out); // 親を指定すると最新の実行を使う（同じ秒でもミリ秒で判定）
     expect(search(out, { query: 'HI' }).map((r) => r.id)).toEqual(['1']);
     expect(search(out, { kind: ['reply'] }).map((r) => r.id)).toEqual(['2']);
     expect(search(out, { hashtag: '#cats' })).toHaveLength(1);

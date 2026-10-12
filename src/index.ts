@@ -1,14 +1,19 @@
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { openSource, parseYtd } from './source.js';
 import { toLike, toPost, toUsername } from './parse.js';
-import { monthKey, renderCsv, renderIndex, renderJsonl, renderLikes, renderMonth, toRow } from './render.js';
-import type { LikeRow, Post, PostKind, PostRow } from './types.js';
+import { localTime, monthKey, renderCsv, renderIndex, renderJsonl, renderLikes, renderMonth, renderReadme, toRow } from './render.js';
+import type { LikeRow, Post, PostKind, PostRow, RunMeta } from './types.js';
 
 export type { Post, PostKind, PostRow, LikeRow };
 export { toPost, toLike };
-export { iterRows, search, type SearchOptions } from './search.js';
+export { iterRows, resolveOutDir, search, type SearchOptions } from './search.js';
 export { computeStats, type Stats } from './stats.js';
+
+const VERSION = (() => {
+  try { return (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version; } catch { return 'unknown'; }
+})();
 
 export type Format = 'md' | 'jsonl' | 'csv';
 
@@ -16,7 +21,10 @@ export interface ProgressEvent { stage: 'read' | 'parse' | 'write'; done: number
 
 export interface ConvertOptions {
   input: string;
+  /** 親フォルダ。実行ごとにこの下へ一意な名前のフォルダを作る */
   out: string;
+  /** true なら親フォルダを作らず out にそのまま書く（前回の出力は置き換える） */
+  here?: boolean;
   tz?: string;
   formats?: Format[];
   /** 含めない投稿の種別 */
@@ -39,7 +47,10 @@ export interface ConvertResult {
   kinds: Record<PostKind, number>;
   range?: [string, string];
   likes: number;
+  /** 実際に書き出したフォルダ */
   out: string;
+  runId: string;
+  createdAt: string;
 }
 
 export const systemTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -55,7 +66,7 @@ export function convert(o: ConvertOptions): ConvertResult {
   const exclude = new Set(o.exclude ?? []);
   for (const d of [o.since, o.until]) if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error(`日付は YYYY-MM-DD で指定してください: ${d}`);
 
-  if (existsSync(o.out) && readdirSync(o.out).length > 0 && !existsSync(join(o.out, 'index.md'))) {
+  if (o.here && existsSync(o.out) && readdirSync(o.out).length > 0 && !existsSync(join(o.out, 'index.md'))) {
     throw new Error(`出力先が空ではなく index.md もありません: ${o.out}`);
   }
 
@@ -92,12 +103,16 @@ export function convert(o: ConvertOptions): ConvertResult {
 
   report('parse', totalPosts, totalPosts);
   report('write', 0, byMonth.size);
+  const now = new Date();
+  const stamp = localTime(now.toISOString(), tz).replace(/[-: ]/g, '').replace(/^(\d{8})(\d{6})$/, '$1-$2');
+  const runId = `${(username ?? 'x').replace(/[^\w.-]/g, '_')}_${stamp}_${randomUUID().slice(0, 8)}`;
+  const dest = o.here ? o.out : join(o.out, runId);
   // 前回の出力を消す（index.md があるときだけここに来る）
-  if (existsSync(join(o.out, 'index.md'))) {
-    for (const e of readdirSync(o.out)) if (/^\d{4}$/.test(e)) rmSync(join(o.out, e), { recursive: true });
-    rmSync(join(o.out, 'likes.jsonl'), { force: true });
+  if (o.here && existsSync(join(dest, 'index.md'))) {
+    for (const e of readdirSync(dest)) if (/^\d{4}$/.test(e)) rmSync(join(dest, e), { recursive: true });
+    for (const f of ['likes.jsonl', 'README.md', 'meta.json']) rmSync(join(dest, f), { force: true });
   }
-  mkdirSync(o.out, { recursive: true });
+  mkdirSync(dest, { recursive: true });
   const keys = [...byMonth.keys()].sort();
   const months = new Map<string, number>();
   const years = new Map<string, number>();
@@ -106,7 +121,7 @@ export function convert(o: ConvertOptions): ConvertResult {
   for (const k of keys) {
     report('write', written++, keys.length);
     const rows = byMonth.get(k)!.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    const dir = join(o.out, k.slice(0, 4));
+    const dir = join(dest, k.slice(0, 4));
     mkdirSync(dir, { recursive: true });
     if (formats.has('md')) writeFileSync(join(dir, `${k}.md`), renderMonth(k, rows, tz));
     if (formats.has('jsonl')) writeFileSync(join(dir, `${k}.jsonl`), renderJsonl(rows));
@@ -117,10 +132,20 @@ export function convert(o: ConvertOptions): ConvertResult {
     last = rows[rows.length - 1]!.localTime.slice(0, 10);
   }
   report('write', keys.length, keys.length);
-  if (likes.length) writeFileSync(join(o.out, 'likes.jsonl'), renderLikes(likes));
+  if (likes.length) writeFileSync(join(dest, 'likes.jsonl'), renderLikes(likes));
   const total = [...months.values()].reduce((a, b) => a + b, 0);
   const range: [string, string] | undefined = first ? [first, last] : undefined;
-  writeFileSync(join(o.out, 'index.md'), renderIndex({ months, tz, total, username, range, likes: likes.length }));
+  writeFileSync(join(dest, 'index.md'), renderIndex({ months, tz, total, username, range, likes: likes.length }));
 
-  return { username, tz, total, skipped, months: [...months], years: [...years], kinds, range, likes: likes.length, out: o.out };
+  const inputPath = resolve(o.input);
+  const meta: RunMeta = {
+    runId, createdAt: now.toISOString(), createdAtLocal: localTime(now.toISOString(), tz), tool: `x-archive-parser ${VERSION}`,
+    source: { path: inputPath, kind: statSync(inputPath).isDirectory() ? 'folder' : 'zip', bytes: statSync(inputPath).isDirectory() ? undefined : statSync(inputPath).size },
+    username, tz, total, skipped, kinds, range, likes: likes.length, formats: [...formats], exclude: [...exclude], since: o.since, until: o.until,
+    months: Object.fromEntries(months), folder: resolve(dest),
+  };
+  writeFileSync(join(dest, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
+  writeFileSync(join(dest, 'README.md'), renderReadme(meta));
+
+  return { username, tz, total, skipped, months: [...months], years: [...years], kinds, range, likes: likes.length, out: dest, runId, createdAt: meta.createdAt };
 }

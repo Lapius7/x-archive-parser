@@ -1,4 +1,4 @@
-import type { LikeRow, Post, PostRow } from './types.js';
+import type { LikeRow, Post, PostRow, RunMeta } from './types.js';
 
 export function monthKey(iso: string, tz: string): string {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' }).formatToParts(new Date(iso));
@@ -74,3 +74,58 @@ ${rows}
 }
 
 export const renderLikes = (likes: LikeRow[]) => renderJsonl(likes);
+
+const n = (x: number) => x.toLocaleString('en-US');
+const mb = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+
+/** 実行フォルダの説明書。あとから「いつ・何から・どんな条件で作ったか」が分かるようにする */
+export function renderReadme(m: RunMeta): string {
+  const filters = [
+    m.since || m.until ? `period: ${m.since ?? 'start'} to ${m.until ?? 'end'}` : '',
+    m.exclude.length ? `excluded kinds: ${m.exclude.join(', ')}` : '',
+  ].filter(Boolean);
+  const months = Object.entries(m.months).map(([k, c]) => `| ${k.slice(0, 4)}/${k}.md | ${n(c)} |`).join('\n');
+  const cmd = (c: string) => `x-archive-parser ${c} "${m.folder}"`;
+  return `# X archive conversion
+
+${m.username ? `Account: @${m.username}\n` : ''}Created: ${m.createdAtLocal} (${m.tz}) / ${m.createdAt} (UTC)
+Run id: ${m.runId}
+Tool: ${m.tool}
+
+## Summary
+
+| Item | Value |
+|---|---|
+| Posts | ${n(m.total)} |
+| Posts by kind | post ${n(m.kinds.post)}, reply ${n(m.kinds.reply)}, repost ${n(m.kinds.repost)}, quote ${n(m.kinds.quote)} |
+| Period of posts | ${m.range ? `${m.range[0]} to ${m.range[1]}` : '-'} |
+| Months with posts | ${Object.keys(m.months).length} |
+| Liked posts saved | ${m.likes ? n(m.likes) : 'not saved'} |
+| Timezone | ${m.tz} |
+| Formats | ${m.formats.join(', ')} |
+| Filters | ${filters.length ? filters.join('; ') : 'none'}${m.skipped ? ` (${n(m.skipped)} posts left out)` : ''} |
+
+## Source
+
+- ${m.source.kind === 'zip' ? 'Zip file' : 'Folder'}: ${m.source.path}${m.source.bytes ? ` (${mb(m.source.bytes)})` : ''}
+
+## Files
+
+- \`index.md\`: entry point for agents (totals and how to search)
+- \`meta.json\`: this information as JSON
+- \`YYYY/YYYY-MM.md|jsonl|csv\`: posts of each month${m.likes ? '\n- `likes.jsonl`: liked posts' : ''}
+
+## Use
+
+\`\`\`bash
+${cmd('search "keyword"')}
+${cmd('stats')}
+\`\`\`
+
+## Posts per month
+
+| File | Posts |
+|---|---|
+${months}
+`;
+}

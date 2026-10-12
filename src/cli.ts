@@ -1,8 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import * as p from '@clack/prompts';
-import { convert, computeStats, search, type Format, type PostKind } from './index.js';
+import { convert, computeStats, resolveOutDir, search, type Format, type PostKind } from './index.js';
 import { interactive } from './interactive.js';
 import { hit, num, pc, progressText, stageTimer, statsReport, summary } from './ui.js';
 
@@ -19,7 +18,9 @@ ${pc.bold('Usage')}
   x-archive-parser stats [dir]              activity summary
 
 ${pc.bold('convert options')}
-  -o, --out <dir>        output folder (default ./x-posts)
+  -o, --out <dir>        parent folder (default ./x-posts). A new subfolder
+                         <user>_<date>_<id>/ is created in it on every run
+      --here             write straight into --out instead (replaces its old output)
       --tz <zone>        IANA timezone (default: system)
   -f, --format <list>    md,jsonl,csv (default md,jsonl)
       --since <date>     YYYY-MM-DD, inclusive
@@ -50,7 +51,7 @@ async function runConvert(args: string[]) {
     args, allowPositionals: true,
     options: {
       out: { type: 'string', short: 'o', default: './x-posts' }, tz: { type: 'string' }, format: { type: 'string', short: 'f' },
-      since: { type: 'string' }, until: { type: 'string' }, exclude: { type: 'string' }, likes: { type: 'boolean' },
+      since: { type: 'string' }, until: { type: 'string' }, exclude: { type: 'string' }, likes: { type: 'boolean' }, here: { type: 'boolean' },
       json: { type: 'boolean' }, quiet: { type: 'boolean', short: 'q' },
     },
   });
@@ -66,13 +67,13 @@ async function runConvert(args: string[]) {
   const timer = stageTimer();
   try {
     const r = convert({
-      input: positionals[0]!, out: v.out!, tz: v.tz, formats: formats as Format[], exclude, since: v.since, until: v.until, likes: v.likes,
+      input: positionals[0]!, out: v.out!, here: v.here, tz: v.tz, formats: formats as Format[], exclude, since: v.since, until: v.until, likes: v.likes,
       onProgress: (e) => { timer.onProgress(e); s?.message(progressText(e)); },
     });
-    s?.stop(`Wrote ${pc.bold(v.out!)}/index.md`);
+    s?.stop(`Wrote ${pc.bold(r.out)}`);
     if (s) console.log(timer.lines(r).join('\n'));
     if (v.json) console.log(JSON.stringify(r, null, 2));
-    else if (!quiet) console.log(`${s ? '' : `Wrote ${v.out}/index.md\n`}\n${summary(r)}\n\n${pc.dim('Next:')} ${pc.cyan(`x-archive-parser search "keyword" ${v.out}`)}`);
+    else if (!quiet) console.log(`${s ? '' : `Wrote ${r.out}\n`}\n${summary(r)}\n\n${pc.dim('Next:')} ${pc.cyan(`x-archive-parser search "keyword" ${r.out}`)}`);
   } catch (e) {
     s?.stop(pc.red('Failed'));
     fail((e as Error).message);
@@ -93,7 +94,9 @@ function runSearch(args: string[]) {
   let dir = positionals[1] ?? './x-posts';
   if (positionals.length === 1 && isOutDir(query!)) { dir = query!; query = undefined; }
   try {
-    const hits = search(dir, {
+    const used = resolveOutDir(dir);
+    if (used !== dir) console.error(pc.dim(`Using ${used}`));
+    const hits = search(used, {
       query, regex: v.regex, kind: checkKinds(list(v.kind), KINDS), since: v.since, until: v.until,
       hashtag: v.hashtag, mention: v.mention, hasMedia: v.media, minLikes: v['min-likes'] ? Number(v['min-likes']) : undefined,
     });
@@ -109,12 +112,15 @@ function runSearch(args: string[]) {
   }
 }
 
-const isOutDir = (d: string) => existsSync(join(d, 'index.md'));
+const isOutDir = (d: string) => { try { resolveOutDir(d); return true; } catch { return false; } };
 
 function runStats(args: string[]) {
   const { values: v, positionals } = parseArgs({ args, allowPositionals: true, options: { json: { type: 'boolean' } } });
   try {
-    const s = computeStats(positionals[0] ?? './x-posts');
+    const dir = positionals[0] ?? './x-posts';
+    const used = resolveOutDir(dir);
+    if (used !== dir) console.error(pc.dim(`Using ${used}`));
+    const s = computeStats(used);
     console.log(v.json ? JSON.stringify(s, null, 2) : statsReport(s));
   } catch (e) {
     fail((e as Error).message);

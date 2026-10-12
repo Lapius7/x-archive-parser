@@ -36,7 +36,7 @@ Zip files and extracted folders whose names start with `twitter-…` or `x-archi
 | Question | Meaning |
 |---|---|
 | Which archive | Pick a candidate or enter a path |
-| Output folder | Default `./x-posts` |
+| Parent folder | Default `./x-posts`. A new subfolder is created on every run |
 | Timezone | Used for dates and monthly grouping. Defaults to the system timezone |
 | File formats | Markdown, JSONL, CSV (multiple allowed) |
 | Post types to skip | Reposts, replies, quote posts. Select none to keep everything |
@@ -46,7 +46,8 @@ Zip files and extracted folders whose names start with `twitter-…` or `x-archi
 
 | Option | Description |
 |---|---|
-| `-o, --out <dir>` | Output folder (default `./x-posts`) |
+| `-o, --out <dir>` | Parent folder (default `./x-posts`). Every run creates a new subfolder in it |
+| `--here` | Write straight into `--out` instead of a subfolder. Replaces the old output in that folder |
 | `--tz <zone>` | IANA timezone (default: system) |
 | `-f, --format <list>` | Comma-separated `md`, `jsonl`, `csv` (default `md,jsonl`) |
 | `--since <date>` / `--until <date>` | `YYYY-MM-DD`, both ends inclusive, judged in the chosen timezone |
@@ -55,22 +56,29 @@ Zip files and extracted folders whose names start with `twitter-…` or `x-archi
 | `--json` | Print the result as JSON |
 | `-q, --quiet` | Print nothing except errors |
 
+Every run creates its own folder named `<user>_<date>_<time>_<random id>`, so a second run never overwrites the first.
+
 Output layout:
 
 ```
 x-posts/
-  index.md              entry point: totals, date range, per-month counts, how to search
-  likes.jsonl           only with --likes
-  2024/2024-01.md       readable posts with links and media
-  2024/2024-01.jsonl    one JSON object per post
-  2024/2024-01.csv      only with -f csv
+  lapius7_20261013-153012_a1b2c3d4/   one folder per run
+    README.md           what this run is: posts, kinds, period, created time, source, filters
+    meta.json           the same details as JSON
+    index.md              entry point: totals, date range, per-month counts, how to search
+    likes.jsonl         only with --likes
+    2024/2024-01.md     readable posts with links and media
+    2024/2024-01.jsonl  one JSON object per post
+    2024/2024-01.csv    only with -f csv
 ```
 
 Each JSONL row has these fields:
 
 `id`, `localTime`, `createdAt`, `kind`, `text`, `url`, `replyToUser`, `quotedUrl`, `urls`, `hashtags`, `mentions`, `media`, `likes`, `reposts`
 
-Running again into the same folder replaces the previous output. A non-empty folder without `index.md` is refused so nothing is overwritten by mistake.
+`README.md` in each run folder records when and from what it was made (source path and size, account, timezone, filters, post counts by kind, period, per-month counts), so you can still tell the runs apart later.
+
+`search` and `stats` accept either a run folder or its parent. With the parent, the newest run is used and the folder is printed as `Using …`.
 
 ### search
 
@@ -91,7 +99,7 @@ x-archive-parser search -E "^(good|bad) morning" --hashtag daily --media -n 0
 | `--full` | Show the whole text instead of one line |
 | `--json` | Output JSON |
 
-Exits with code 1 when nothing matches. The directory defaults to `./x-posts`.
+Exits with code 1 when nothing matches. The folder defaults to `./x-posts` (newest run).
 
 ### stats
 

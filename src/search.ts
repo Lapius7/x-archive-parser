@@ -2,9 +2,23 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PostKind, PostRow } from './types.js';
 
+/**
+ * 出力フォルダを決める。指定先に index.md があればそこ、なければ直下の実行フォルダのうち最新のもの。
+ * 新しさは meta.json の作成時刻（ミリ秒）で決める
+ */
+export function resolveOutDir(dir: string): string {
+  if (existsSync(join(dir, 'index.md'))) return dir;
+  const runs = existsSync(dir) ? readdirSync(dir).filter((e) => existsSync(join(dir, e, 'index.md'))).sort() : [];
+  if (runs.length === 0) throw new Error(`変換結果が見つかりません: ${dir}（先に変換してください）`);
+  const key = (name: string) => {
+    try { return (JSON.parse(readFileSync(join(dir, name, 'meta.json'), 'utf8')) as { createdAt: string }).createdAt; } catch { return ''; }
+  };
+  return join(dir, [...runs].sort((a, b) => key(a).localeCompare(key(b)) || a.localeCompare(b)).at(-1)!);
+}
+
 /** 出力ディレクトリの JSONL を古い順に読む */
 export function* iterRows(dir: string): Generator<PostRow> {
-  if (!existsSync(join(dir, 'index.md'))) throw new Error(`index.md がありません。変換済みの出力ディレクトリを指定してください: ${dir}`);
+  dir = resolveOutDir(dir);
   for (const y of readdirSync(dir).filter((e) => /^\d{4}$/.test(e)).sort()) {
     for (const f of readdirSync(join(dir, y)).filter((e) => e.endsWith('.jsonl')).sort()) {
       for (const line of readFileSync(join(dir, y, f), 'utf8').split('\n')) if (line) yield JSON.parse(line) as PostRow;

@@ -23,3 +23,25 @@ export interface Post {
 export interface PostRow extends Post { localTime: string }
 
 export interface LikeRow { tweetId: string; text: string; url: string }
+
+/** 各実行フォルダの meta.json と README.md の元になる情報 */
+export interface RunMeta {
+  runId: string;
+  createdAt: string;
+  createdAtLocal: string;
+  tool: string;
+  source: { path: string; kind: 'zip' | 'folder'; bytes?: number };
+  username?: string;
+  tz: string;
+  total: number;
+  skipped: number;
+  kinds: Record<PostKind, number>;
+  range?: [string, string];
+  likes: number;
+  formats: string[];
+  exclude: string[];
+  since?: string;
+  until?: string;
+  months: Record<string, number>;
+  folder: string;
+}

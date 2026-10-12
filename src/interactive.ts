@@ -69,7 +69,7 @@ export async function interactive(): Promise<void> {
     input = resolve(t as string);
   }
 
-  const out = await p.text({ message: 'Where should the converted files go?', initialValue: './x-posts' });
+  const out = await p.text({ message: 'Parent folder for the results (a new subfolder is created on every run)', initialValue: './x-posts' });
   cancelled(out);
   const tz = await p.text({
     message: 'Timezone for dates and monthly grouping', initialValue: systemTz(),
@@ -107,7 +107,7 @@ export async function interactive(): Promise<void> {
       input, out: out as string, tz: tz as string, formats: formats as Format[], exclude: exclude as PostKind[], likes: likes as boolean,
       onProgress: (e) => { timer.onProgress(e); s.message(progressText(e)); },
     });
-    s.stop(`Done. Wrote ${pc.bold(r.out)}/index.md`);
+    s.stop(`Done. Wrote ${pc.bold(r.out)}`);
     for (const l of timer.lines(r)) p.log.message(l);
     p.note(summary(r), 'Result');
     p.outro(`Next, try: ${pc.cyan(`x-archive-parser search "keyword" ${r.out}`)}`);
