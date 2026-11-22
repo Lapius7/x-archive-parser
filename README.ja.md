@@ -1,8 +1,33 @@
-# x-archive-parser
+<div align="center">
 
-[English](README.md) | 日本語
+<p align="center">
+  <img src="docs/images/banner.png" alt="X Archive Parser" width="100%">
+</p>
 
-X（旧Twitter）のアーカイブを、月ごとの Markdown・JSONL・CSV に変換する CLI です。変換後のファイルは、コーディングエージェントや `grep` で調べやすい構成になっています。変換した投稿の検索と集計も、同じコマンドで行えます。完全にオフラインで動作し、実行時の依存パッケージは `@clack/prompts` と `picocolors` の2つだけです。
+<p align="center"><a href="README.md">English</a> | <b>日本語</b></p>
+
+<h1 align="center">X Archive Parser</h1>
+
+<h3 align="center">X のアーカイブを、エージェントが grep できる形に変換する。</h3>
+
+<p align="center">X（旧Twitter）のアーカイブを、月ごとの Markdown・JSONL・CSV に変換する CLI です。変換後のファイルは、コーディングエージェントや grep で調べやすい構成になっています。変換した投稿の検索と集計も、同じコマンドで行えます。完全にオフラインで動作し、実行時の依存パッケージは @clack/prompts と picocolors の2つだけです。</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lapius/x-archive-parser"><img alt="npm" src="https://img.shields.io/npm/v/@lapius/x-archive-parser?style=flat-square&color=cb3837&logo=npm"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/actions/workflows/release.yml"><img alt="Release workflow" src="https://img.shields.io/github/actions/workflow/status/Lapius7/x-archive-parser/release.yml?label=release&style=flat-square&logo=githubactions&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Lapius7/x-archive-parser?style=flat-square&color=97ca00"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Lapius7/x-archive-parser?style=flat-square&color=e3b341&logo=github"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/Lapius7/x-archive-parser?style=flat-square&color=3b82f6"></a>
+</p>
+
+<p align="center">
+  <a href="#クイックスタート">クイックスタート</a> ·
+  <a href="#convert">convert</a> ·
+  <a href="#search">search</a> ·
+  <a href="#制限事項">制限事項</a>
+</p>
+
+</div>
 
 ## 目次
 
@@ -363,9 +388,9 @@ const stats = computeStats(dir);
 
 ## 制限事項
 
-- 読み込むのは `tweets*.js`、`account.js`、`like.js` のみです。
+- 読み込むのは `tweets*.js`、`account.js`、`like.js`、`note-tweet.js`（長文投稿の全文）のみです。
 - 画像と動画のファイルはコピーしません。URL を記録します。
-- DM と、`note-tweet.js` にある長文の本文は含みません。
+- DM は含みません。
 - アーカイブの形式は公式に文書化された仕様ではなく、変わる可能性があります。`like.js` と `account.js` は、想定外の形でも落ちにくいように読んでいます。
 
 ## 開発
