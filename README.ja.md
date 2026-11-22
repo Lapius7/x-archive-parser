@@ -1,8 +1,33 @@
-# x-archive-parser
+<div align="center">
 
-[English](README.md) | 日本語
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Lapius7/x-archive-parser/main/docs/images/banner.png" alt="X Archive Parser" width="100%">
+</p>
 
-X（旧Twitter）のアーカイブを、月ごとの Markdown・JSONL・CSV に変換する CLI です。変換後のファイルは、コーディングエージェントや `grep` で調べやすい構成になっています。変換した投稿の検索と集計も、同じコマンドで行えます。完全にオフラインで動作し、実行時の依存パッケージは `@clack/prompts` と `picocolors` の2つだけです。
+<p align="center"><a href="README.md">English</a> | <b>日本語</b></p>
+
+<h1 align="center">X Archive Parser</h1>
+
+<h3 align="center">X のアーカイブを、エージェントが grep できる形に変換する。</h3>
+
+<p align="center">X（旧Twitter）のアーカイブを、月ごとの Markdown・JSONL・CSV に変換する CLI です。変換後のファイルは、コーディングエージェントや grep で調べやすい構成になっています。変換した投稿の検索と集計も、同じコマンドで行えます。完全にオフラインで動作し、実行時の依存パッケージは @clack/prompts と picocolors の2つだけです。</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lapius/x-archive-parser"><img alt="npm" src="https://img.shields.io/npm/v/@lapius/x-archive-parser?style=flat-square&color=cb3837&logo=npm"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/actions/workflows/release.yml"><img alt="Release workflow" src="https://img.shields.io/github/actions/workflow/status/Lapius7/x-archive-parser/release.yml?label=release&style=flat-square&logo=githubactions&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Lapius7/x-archive-parser?style=flat-square&color=97ca00"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Lapius7/x-archive-parser?style=flat-square&color=e3b341&logo=github"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/Lapius7/x-archive-parser?style=flat-square&color=3b82f6"></a>
+</p>
+
+<p align="center">
+  <a href="#クイックスタート">クイックスタート</a> ·
+  <a href="#convert">convert</a> ·
+  <a href="#search">search</a> ·
+  <a href="#制限事項">制限事項</a>
+</p>
+
+</div>
 
 ## 目次
 
@@ -60,7 +85,7 @@ pnpm dlx @lapius/x-archive-parser --help
 
 ### lapacks で入れる
 
-このパッケージは、`@lapius` のパッケージ管理 CLI である [lapacks](https://github.com/Lapius7/lapacks) に登録されています。lapacks を使っている場合は、次のコマンドで管理できます。
+このパッケージは`@lapius` のパッケージ管理 CLI である [lapacks](https://github.com/Lapius7/lapacks) に登録されています。lapacks を使っている場合は、次のコマンドで管理できます。
 
 ```bash
 lapacks install x-archive-parser     # インストール
@@ -77,7 +102,7 @@ Node.js 20 以上が必要です。グローバルへのインストールは pn
 
 1. X の設定から「アカウント」、「データのアーカイブをダウンロード」の順に開きます。
 2. アーカイブをリクエストし、準備ができた通知を待ちます。1日以上かかることもあります。
-3. zip をダウンロードします。zip のまま渡すことも、展開してフォルダを渡すこともできます。
+3. zip をダウンロードします。zip のまま渡すことも展開してフォルダを渡すこともできます。
 
 読み込むのは `data/tweets*.js`（必須）、`data/account.js`（ユーザー名）、`data/like.js`（`--likes` を付けたときのみ）です。アーカイブ内のそれ以外のファイルは使いません。X のメニューの表記は変わることがあります。
 
@@ -93,7 +118,7 @@ x-archive-parser
 
 - カレントディレクトリ
 - `~/Downloads`
-- WSL では、Windows 側の全ユーザーの `Downloads`（`/mnt/c/Users/*/Downloads`）
+- WSL ではWindows 側の全ユーザーの `Downloads`（`/mnt/c/Users/*/Downloads`）
 
 名前が `twitter-…` や `x-archive…` で始まる zip と展開済みフォルダを候補として表示します。表示は `twitter-2026-10-05 (zip)` のような短い形で、フルパスはヒントに出ます。見つからない場合は、パスを入力できます。
 
@@ -106,7 +131,7 @@ x-archive-parser
 | 除外する投稿の種類 | リポスト、リプライ、引用ポスト。何も選ばなければすべて含めます |
 | いいねした投稿 | `likes.jsonl` に保存します |
 
-変換中は、スピナーに現在の段階と進捗バー、件数を表示します。終わると、各段階にかかった時間、概要（合計、種別、年別・月別の件数）、次に試すコマンドの例を表示し、最後に新しいフォルダのフルパスを出します。
+変換中はスピナーに現在の段階と進捗バー、件数を表示します。終わると、各段階にかかった時間、概要（合計、種別、年別・月別の件数）、次に試すコマンドの例を表示し、最後に新しいフォルダのフルパスを出します。
 
 端末が対話式でない場合（パイプや CI など）は、引数なしで実行してもヘルプを表示するだけです。
 
@@ -154,7 +179,7 @@ x-archive-parser search "ラーメン" "$OUT"
 
 ### `--json` の出力
 
-結果のオブジェクトには、`username`、`tz`、`total`、`skipped`、`months`、`years`、`kinds`、`range`、`likes`、`out`（絶対パス）、`runId`、`createdAt` が入ります。
+結果のオブジェクトには`username`、`tz`、`total`、`skipped`、`months`、`years`、`kinds`、`range`、`likes`、`out`（絶対パス）、`runId`、`createdAt` が入ります。
 
 ## 出力の構成
 
@@ -257,7 +282,7 @@ x-archive-parser search "ラーメン" -n 0 -f csv -o ramen.csv   # 全件をフ
 x-archive-parser search --min-likes 100 -n 0                  # いいね100以上の全投稿（クエリなし）
 ```
 
-`text` 形式では、一致した部分を強調し、各件に時刻、種別、本文、パーマリンクを表示します。機械可読の形式では標準出力にデータだけを出し、ヒット件数などのメッセージは標準エラーに出すため、パイプに混ざりません。`-o` で保存したときは、保存先の絶対パスを標準エラーに表示します。
+`text` 形式では一致した部分を強調し、各件に時刻、種別、本文、パーマリンクを表示します。機械可読の形式では標準出力にデータだけを出し、ヒット件数などのメッセージは標準エラーに出すため、パイプに混ざりません。`-o` で保存したときは、保存先の絶対パスを標準エラーに表示します。
 
 ## stats
 
@@ -323,11 +348,11 @@ const stats = computeStats(dir);
 
 ほかに、`toPost`、`toLike`、`iterRows`、`systemTz`、`validateTz`、`parseLang`、`detectLang`、`getLang` と、型 `Post`、`PostRow`、`LikeRow`、`PostKind`、`Format`、`ConvertOptions`、`ConvertResult`、`ProgressEvent`、`SearchOptions`、`Stats`、`Lang` を公開しています。
 
-`ConvertOptions` には `input`、`out`、`here`、`tz`、`formats`、`exclude`、`since`、`until`、`likes`、`lang`、`onProgress` を指定できます。エラーは、現在の言語のメッセージを持つ `Error` として投げます。
+`ConvertOptions` には `input`、`out`、`here`、`tz`、`formats`、`exclude`、`since`、`until`、`likes`、`lang`、`onProgress` を指定できます。エラーは現在の言語のメッセージを持つ `Error` として投げます。
 
 ## 仕組み
 
-1. **開く**: zip は、内蔵の小さなリーダー（`node:zlib` による stored と deflate の展開）で読みます。フォルダはそのまま読みます。zip ライブラリは使いません。
+1. **開く**: zip は内蔵の小さなリーダー（`node:zlib` による stored と deflate の展開）で読みます。フォルダはそのまま読みます。zip ライブラリは使いません。
 2. **読み取る**: `data/tweets*.js` は `window.YTD.tweets.part0 = [...]` で始まるため、この前置きを除いた残りを JSON として解析します。重複した ID は除きます。
 3. **整える**: t.co リンクを展開し、メディアの t.co リンクを本文から除き、HTML エンティティを戻します。各投稿は `post`、`reply`、`repost`、`quote` のどれかに分類します。
 4. **絞り込んで分ける**: `--since`、`--until`、`--exclude` を適用し、選んだタイムゾーンで月ごとに分けます。
@@ -363,9 +388,9 @@ const stats = computeStats(dir);
 
 ## 制限事項
 
-- 読み込むのは `tweets*.js`、`account.js`、`like.js` のみです。
+- 読み込むのは `tweets*.js`、`account.js`、`like.js`、`note-tweet.js`（長文投稿の全文）のみです。
 - 画像と動画のファイルはコピーしません。URL を記録します。
-- DM と、`note-tweet.js` にある長文の本文は含みません。
+- DM は含みません。
 - アーカイブの形式は公式に文書化された仕様ではなく、変わる可能性があります。`like.js` と `account.js` は、想定外の形でも落ちにくいように読んでいます。
 
 ## 開発

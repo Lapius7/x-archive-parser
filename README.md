@@ -1,8 +1,33 @@
-# x-archive-parser
+<div align="center">
 
-English | [日本語](README.ja.md)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Lapius7/x-archive-parser/main/docs/images/banner.png" alt="X Archive Parser" width="100%">
+</p>
 
-A CLI that converts an X (Twitter) archive into per-month Markdown, JSONL and CSV. The output is laid out so coding agents and `grep` can search it. The same command also searches and summarises the converted posts. It runs fully offline and has only two runtime dependencies (`@clack/prompts`, `picocolors`).
+<p align="center"><b>English</b> | <a href="README.ja.md">日本語</a></p>
+
+<h1 align="center">X Archive Parser</h1>
+
+<h3 align="center">Turn an X archive into Markdown, JSONL and CSV that agents can grep.</h3>
+
+<p align="center">A CLI that converts an X (Twitter) archive into per-month Markdown, JSONL and CSV. The output is laid out so coding agents and grep can search it. The same command also searches and summarises the converted posts. It runs fully offline and has only two runtime dependencies (@clack/prompts, picocolors).</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lapius/x-archive-parser"><img alt="npm" src="https://img.shields.io/npm/v/@lapius/x-archive-parser?style=flat-square&color=cb3837&logo=npm"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/actions/workflows/release.yml"><img alt="Release workflow" src="https://img.shields.io/github/actions/workflow/status/Lapius7/x-archive-parser/release.yml?label=release&style=flat-square&logo=githubactions&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Lapius7/x-archive-parser?style=flat-square&color=97ca00"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Lapius7/x-archive-parser?style=flat-square&color=e3b341&logo=github"></a>
+  <a href="https://github.com/Lapius7/x-archive-parser/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/Lapius7/x-archive-parser?style=flat-square&color=3b82f6"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#convert">convert</a> ·
+  <a href="#search">search</a> ·
+  <a href="#limitations">Limitations</a>
+</p>
+
+</div>
 
 ## Contents
 
@@ -363,9 +388,9 @@ Other exports: `toPost`, `toLike`, `iterRows`, `systemTz`, `validateTz`, `parseL
 
 ## Limitations
 
-- Only `tweets*.js`, `account.js` and `like.js` are read.
+- Only `tweets*.js`, `account.js`, `like.js` and `note-tweet.js` (full text of long posts) are read.
 - Image and video files are not copied. Their URLs are recorded.
-- DMs and long-post bodies from `note-tweet.js` are not included.
+- DMs are not included.
 - The archive format is not an official, documented interface and may change; `like.js` and `account.js` are read defensively.
 
 ## Development
