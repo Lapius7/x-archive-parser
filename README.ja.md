@@ -1,9 +1,5 @@
 <div align="center">
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Lapius7/x-archive-parser/main/docs/images/banner.png" alt="X Archive Parser" width="100%">
-</p>
-
 <p align="center"><a href="README.md">English</a> | <b>日本語</b></p>
 
 <h1 align="center">X Archive Parser</h1>
